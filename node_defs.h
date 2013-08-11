@@ -3,9 +3,10 @@
 #define NODE_DEFS_H_
 
 #include <node.h>
+#include "nan.h"
 
 #define NODE_CONSTANT(constant) v8::Integer::New(constant)
-#define NODE_PERSISTENT_SYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
+//#define NODE_PERSISTENT_SYMBOL(s) v8::Persistent<v8::String>::New(v8::String::NewSymbol(s))
 
 #define NODE_ADD_PROTOTYPE_METHOD(templ, name, callback)                  \
 do {                                                                      \
@@ -23,7 +24,7 @@ do {                                                                      \
                 static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete))
 
 #define THROW_EXCEPTION(message) \
-    return v8::ThrowException(v8::Exception::Error(v8::String::New(message)));
+    return NanThrowError(v8::String::New(message));
 
 #define ARG_CHECK_OPTIONAL_STRING(I, VAR) \
     if (args.Length() > I && !args[I]->IsString()) { \

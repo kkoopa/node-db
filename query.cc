@@ -14,7 +14,7 @@ v8::Local<v8::String> v8StringFromUInt64(uint64_t num, std::ostringstream &reusa
     return v8::String::New(reusableStream.str().c_str());
 }
 
-void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
+void node_db::Query::Init(v8::Handle<v8::Object> target, v8::Local<v8::FunctionTemplate> constructorTemplate) {
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "select", Select);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "from", From);
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "join", Join);
@@ -42,13 +42,13 @@ node_db::Query::~Query() {
     }
 
     if (this->cbStart != NULL) {
-        node::cb_destroy(this->cbStart);
+        delete this->cbStart;
     }
     if (this->cbExecute != NULL) {
-        node::cb_destroy(this->cbExecute);
+        delete this->cbExecute;
     }
     if (this->cbFinish != NULL) {
-        node::cb_destroy(this->cbFinish);
+        delete this->cbFinish;
     }
 }
 
@@ -56,8 +56,8 @@ void node_db::Query::setConnection(node_db::Connection* connection) {
     this->connection = connection;
 }
 
-v8::Handle<v8::Value> node_db::Query::Select(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Select) {
+    NanScope();
 
     if (args.Length() > 0) {
         if (args[0]->IsArray()) {
@@ -77,7 +77,7 @@ v8::Handle<v8::Value> node_db::Query::Select(const v8::Arguments& args) {
     query->sql << "SELECT ";
 
     if (args[0]->IsArray()) {
-        v8::Local<v8::Array> fields = v8::Array::Cast(*args[0]);
+        v8::Local<v8::Array> fields = args[0].As<v8::Array>();
         if (fields->Length() == 0) {
             THROW_EXCEPTION("No fields specified in select")
         }
@@ -104,11 +104,11 @@ v8::Handle<v8::Value> node_db::Query::Select(const v8::Arguments& args) {
         query->sql << *fields;
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::From(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::From) {
+    NanScope();
 
     if (args.Length() > 0) {
         if (args[0]->IsArray()) {
@@ -140,11 +140,11 @@ v8::Handle<v8::Value> node_db::Query::From(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what());
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Join(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Join) {
+    NanScope();
 
     ARG_CHECK_OBJECT(0, join);
     ARG_CHECK_OPTIONAL_ARRAY(1, values);
@@ -188,47 +188,47 @@ v8::Handle<v8::Value> node_db::Query::Join(const v8::Arguments& args) {
         v8::String::Utf8Value conditions(join->Get(conditions_key)->ToObject());
         std::string currentConditions = *conditions;
         if (args.Length() > 1) {
-            v8::Local<v8::Array> currentValues = v8::Array::Cast(*args[1]);
+            v8::Local<v8::Array> currentValues = args[1].As<v8::Array>();
             for (uint32_t i = 0, limiti = currentValues->Length(); i < limiti; i++) {
-                query->values.push_back(v8::Persistent<v8::Value>::New(currentValues->Get(i)));
+                NanAssignPersistent(v8::Value, query->values[i], currentValues->Get(i));
             }
         }
 
         query->sql << " ON (" << currentConditions << ")";
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Where(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Where) {
+    NanScope();
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    return scope.Close(query->addCondition(args, "WHERE"));
+    NanReturnValue(query->addCondition(args, "WHERE"));
 }
 
-v8::Handle<v8::Value> node_db::Query::And(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::And) {
+    NanScope();
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    return scope.Close(query->addCondition(args, "AND"));
+    NanReturnValue(query->addCondition(args, "AND"));
 }
 
-v8::Handle<v8::Value> node_db::Query::Or(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Or) {
+    NanScope();
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    return scope.Close(query->addCondition(args, "OR"));
+    NanReturnValue(query->addCondition(args, "OR"));
 }
 
-v8::Handle<v8::Value> node_db::Query::Order(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Order) {
+    NanScope();
 
     if (args.Length() > 0 && args[0]->IsObject()) {
         ARG_CHECK_OBJECT(0, fields);
@@ -306,11 +306,11 @@ v8::Handle<v8::Value> node_db::Query::Order(const v8::Arguments& args) {
         query->sql << *sql;
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Limit) {
+    NanScope();
 
     if (args.Length() > 1) {
         ARG_CHECK_UINT32(0, offset);
@@ -331,11 +331,11 @@ v8::Handle<v8::Value> node_db::Query::Limit(const v8::Arguments& args) {
         query->sql << args[0]->ToInt32()->Value();
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Add(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Add) {
+    NanScope();
 
     node_db::Query* innerQuery = NULL;
 
@@ -362,11 +362,11 @@ v8::Handle<v8::Value> node_db::Query::Add(const v8::Arguments& args) {
         query->sql << *sql;
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Delete(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Delete) {
+    NanScope();
 
     if (args.Length() > 0) {
         if (args[0]->IsArray()) {
@@ -397,11 +397,11 @@ v8::Handle<v8::Value> node_db::Query::Delete(const v8::Arguments& args) {
         }
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Insert) {
+    NanScope();
     uint32_t argsLength = args.Length();
 
     int fieldsIndex = -1, valuesIndex = -1;
@@ -451,7 +451,7 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
         if (fieldsIndex != -1) {
             query->sql << "(";
             if (args[fieldsIndex]->IsArray()) {
-                v8::Local<v8::Array> fields = v8::Array::Cast(*args[fieldsIndex]);
+                v8::Local<v8::Array> fields = args[fieldsIndex].As<v8::Array>();
                 if (fields->Length() == 0) {
                     THROW_EXCEPTION("No fields specified in insert")
                 }
@@ -479,7 +479,7 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
         query->sql << " ";
 
         if (valuesIndex != -1) {
-            v8::Local<v8::Array> values = v8::Array::Cast(*args[valuesIndex]);
+            v8::Local<v8::Array> values = args[valuesIndex].As<v8::Array>();
             uint32_t valuesLength = values->Length();
             if (valuesLength > 0) {
                 bool multipleRecords = values->Get(0)->IsArray();
@@ -505,11 +505,11 @@ v8::Handle<v8::Value> node_db::Query::Insert(const v8::Arguments& args) {
         query->sql << " ";
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Update(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Update) {
+    NanScope();
 
     if (args.Length() > 0) {
         if (args[0]->IsArray()) {
@@ -541,11 +541,11 @@ v8::Handle<v8::Value> node_db::Query::Update(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what());
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Set) {
+    NanScope();
 
     ARG_CHECK_OBJECT(0, values);
     ARG_CHECK_OPTIONAL_BOOL(1, escape);
@@ -580,20 +580,20 @@ v8::Handle<v8::Value> node_db::Query::Set(const v8::Arguments& args) {
         query->sql << query->value(currentValue);
     }
 
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
 }
 
-v8::Handle<v8::Value> node_db::Query::Sql(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Sql) {
+    NanScope();
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
 
-    return scope.Close(v8::String::New(query->sql.str().c_str()));
+    NanReturnValue(v8::String::New(query->sql.str().c_str()));
 }
 
-v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Query::Execute) {
+    NanScope();
 
     node_db::Query *query = node::ObjectWrap::Unwrap<node_db::Query>(args.This());
     assert(query);
@@ -601,7 +601,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     if (args.Length() > 0) {
         v8::Handle<v8::Value> set = query->set(args);
         if (!set.IsEmpty()) {
-            return scope.Close(set);
+            NanReturnValue(set);
         }
     }
 
@@ -613,19 +613,19 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what())
     }
 
-    if (query->cbStart != NULL && !query->cbStart->IsEmpty()) {
+    if (query->cbStart != NULL && !query->cbStart->GetFunction().IsEmpty()) {
         v8::Local<v8::Value> argv[1];
         argv[0] = v8::String::New(sql.c_str());
 
         v8::TryCatch tryCatch;
-        v8::Handle<v8::Value> result = (*(query->cbStart))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
+        v8::Handle<v8::Value> result = (*(query->cbStart->GetFunction()))->Call(v8::Context::GetCurrent()->Global(), 1, argv);
         if (tryCatch.HasCaught()) {
             node::FatalException(tryCatch);
         }
 
         if (!result->IsUndefined()) {
             if (result->IsFalse()) {
-                return scope.Close(v8::Undefined());
+                NanReturnValue(v8::Undefined());
             } else if (result->IsString()) {
                 v8::String::Utf8Value modifiedQuery(result->ToString());
                 sql = *modifiedQuery;
@@ -646,7 +646,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
     query->sql.clear();
     query->sql << sql;
 
-    request->context = v8::Persistent<v8::Object>::New(args.This());
+    NanAssignPersistent(v8::Object, request->context, args.This());
     request->query = query;
     request->buffered = false;
     request->result = NULL;
@@ -670,7 +670,7 @@ v8::Handle<v8::Value> node_db::Query::Execute(const v8::Arguments& args) {
         request->query->executeAsync(request);
     }
 
-    return scope.Close(v8::Undefined());
+    NanReturnValue(v8::Undefined());
 }
 
 void node_db::Query::uvExecute(uv_work_t* uvRequest) {
@@ -745,7 +745,7 @@ void node_db::Query::uvExecute(uv_work_t* uvRequest) {
 }
 
 void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest, int status) {
-    v8::HandleScope scope;
+    NanScope();
 
     execute_request_t *request = static_cast<execute_request_t *>(uvRequest->data);
     assert(request);
@@ -801,9 +801,9 @@ void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest, int status) {
 
         request->query->Emit("success", !isEmpty ? 2 : 1, &argv[1]);
 
-        if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
+        if (request->query->cbExecute != NULL && !request->query->cbExecute->GetFunction().IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbExecute))->Call(request->context, !isEmpty ? 3 : 2, argv);
+            (*(request->query->cbExecute->GetFunction()))->Call(NanPersistentToLocal(request->context), !isEmpty ? 3 : 2, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -814,18 +814,18 @@ void node_db::Query::uvExecuteFinished(uv_work_t* uvRequest, int status) {
 
         request->query->Emit("error", 1, argv);
 
-        if (request->query->cbExecute != NULL && !request->query->cbExecute->IsEmpty()) {
+        if (request->query->cbExecute != NULL && !request->query->cbExecute->GetFunction().IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(request->query->cbExecute))->Call(request->context, 1, argv);
+            (*(request->query->cbExecute->GetFunction()))->Call(NanPersistentToLocal(request->context), 1, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
         }
     }
 
-    if (request->query->cbFinish != NULL && !request->query->cbFinish->IsEmpty()) {
+    if (request->query->cbFinish != NULL && !request->query->cbFinish->GetFunction().IsEmpty()) {
         v8::TryCatch tryCatch;
-        (*(request->query->cbFinish))->Call(v8::Context::GetCurrent()->Global(), 0, NULL);
+        (*(request->query->cbFinish->GetFunction()))->Call(v8::Context::GetCurrent()->Global(), 0, NULL);
         if (tryCatch.HasCaught()) {
             node::FatalException(tryCatch);
         }
@@ -912,9 +912,9 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
             this->Emit("success", !isEmpty ? 2 : 1, &argv[1]);
 
-            if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
+            if (this->cbExecute != NULL && !this->cbExecute->GetFunction().IsEmpty()) {
                 v8::TryCatch tryCatch;
-                (*(this->cbExecute))->Call(request->context, !isEmpty ? 3 : 2, argv);
+                (*(this->cbExecute->GetFunction()))->Call(NanPersistentToLocal(request->context), !isEmpty ? 3 : 2, argv);
                 if (tryCatch.HasCaught()) {
                     node::FatalException(tryCatch);
                 }
@@ -928,9 +928,9 @@ void node_db::Query::executeAsync(execute_request_t* request) {
 
         this->Emit("error", 1, argv);
 
-        if (this->cbExecute != NULL && !this->cbExecute->IsEmpty()) {
+        if (this->cbExecute != NULL && !this->cbExecute->GetFunction().IsEmpty()) {
             v8::TryCatch tryCatch;
-            (*(this->cbExecute))->Call(request->context, 1, argv);
+            (*(this->cbExecute->GetFunction()))->Call(NanPersistentToLocal(request->context), 1, argv);
             if (tryCatch.HasCaught()) {
                 node::FatalException(tryCatch);
             }
@@ -974,13 +974,19 @@ void node_db::Query::freeRequest(execute_request_t* request, bool freeAll) {
             delete request->result;
         }
 
-        request->context.Dispose();
+        NanDispose(request->context);
 
         delete request;
     }
 }
 
-v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
+#undef THROW_EXCEPTION
+#define THROW_EXCEPTION(message) \
+    return v8::ThrowException(v8::Exception::Error(v8::String::New(message)));
+
+v8::Local<v8::Value> node_db::Query::set(_NAN_METHOD_ARGS) {
+    NanScope();
+
     if (args.Length() == 0) {
         return v8::Handle<v8::Value>();
     }
@@ -1081,28 +1087,28 @@ v8::Handle<v8::Value> node_db::Query::set(const v8::Arguments& args) {
 
         if (options->Has(start_key)) {
             if (this->cbStart != NULL) {
-                node::cb_destroy(this->cbStart);
+                delete this->cbStart;
             }
-            this->cbStart = node::cb_persist(options->Get(start_key));
+            this->cbStart = new NanCallback(options->Get(start_key).As<v8::Function>());
         }
 
         if (options->Has(finish_key)) {
             if (this->cbFinish != NULL) {
-                node::cb_destroy(this->cbFinish);
+                delete this->cbFinish;
             }
-            this->cbFinish = node::cb_persist(options->Get(finish_key));
+            this->cbFinish = new NanCallback(options->Get(finish_key).As<v8::Function>());
         }
     }
 
     if (valuesIndex >= 0) {
-        v8::Local<v8::Array> values = v8::Array::Cast(*args[valuesIndex]);
+        v8::Local<v8::Array> values = args[valuesIndex].As<v8::Array>();
         for (uint32_t i = 0, limiti = values->Length(); i < limiti; i++) {
-            this->values.push_back(v8::Persistent<v8::Value>::New(values->Get(i)));
+            NanAssignPersistent(v8::Value, this->values[i], values->Get(i));
         }
     }
 
     if (callbackIndex >= 0) {
-        this->cbExecute = node::cb_persist(args[callbackIndex]);
+        this->cbExecute = new NanCallback(args[callbackIndex].As<v8::Function>());
     }
 
     return v8::Handle<v8::Value>();
@@ -1182,7 +1188,7 @@ std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) c
     std::string buffer;
 
     if (value->IsArray()) {
-        v8::Local<v8::Array> tables = v8::Array::Cast(*value);
+        v8::Local<v8::Array> tables = value.As<v8::Array>();
         if (tables->Length() == 0) {
             throw node_db::Exception("No tables specified");
         }
@@ -1223,16 +1229,16 @@ std::string node_db::Query::tableName(v8::Local<v8::Value> value, bool escape) c
     return buffer;
 }
 
-v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, const char* separator) {
+v8::Handle<v8::Value> node_db::Query::addCondition(_NAN_METHOD_ARGS, const char* separator) {
     ARG_CHECK_STRING(0, conditions);
     ARG_CHECK_OPTIONAL_ARRAY(1, values);
 
     v8::String::Utf8Value conditions(args[0]->ToString());
     std::string currentConditions = *conditions;
     if (args.Length() > 1) {
-        v8::Local<v8::Array> currentValues = v8::Array::Cast(*args[1]);
+        v8::Local<v8::Array> currentValues = args[1].As<v8::Array>();
         for (uint32_t i = 0, limiti = currentValues->Length(); i < limiti; i++) {
-            this->values.push_back(v8::Persistent<v8::Value>::New(currentValues->Get(i)));
+            NanAssignPersistent(v8::Value, this->values[i], currentValues->Get(i));
         }
     }
 
@@ -1241,6 +1247,11 @@ v8::Handle<v8::Value> node_db::Query::addCondition(const v8::Arguments& args, co
 
     return args.This();
 }
+
+#undef THROW_EXCEPTION
+#define THROW_EXCEPTION(message) \
+    return NanThrowError(v8::String::New(message));
+
 
 v8::Local<v8::Object> node_db::Query::row(node_db::Result* result, row_t* currentRow) const {
     v8::Local<v8::Object> row = v8::Object::New();
@@ -1402,10 +1413,10 @@ std::string node_db::Query::parseQuery() const throw(node_db::Exception&) {
 
     uint32_t index = 0, delta = 0;
     for (std::vector<std::string::size_type>::iterator iterator = positions.begin(), end = positions.end(); iterator != end; ++iterator, index++) {
-        std::string value = this->value(*(this->values[index]));
+        std::string value = this->value(NanPersistentToLocal(this->values[index]));
 
 	if(!value.length()) {
-		throw node_db::Exception("Internal error, attempting to replace with zero length value");
+		throw node_db::Exception("Internal error, atconstructorTemplateting to replace with zero length value");
 	}
 
         parsed.replace(*iterator + delta, 1, value);
@@ -1421,7 +1432,7 @@ std::string node_db::Query::value(v8::Local<v8::Value> value, bool inArray, bool
     if (value->IsNull()) {
         currentStream << "NULL";
     } else if (value->IsArray()) {
-        v8::Local<v8::Array> array = v8::Array::Cast(*value);
+        v8::Local<v8::Array> array = value.As<v8::Array>();
         if (!inArray) {
             currentStream << '(';
         }

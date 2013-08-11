@@ -18,13 +18,14 @@
 #include "./events.h"
 #include "./exception.h"
 #include "./result.h"
+#include "nan.h"
 
 namespace node_db {
 class Query : public EventEmitter {
     public:
-        static void Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate);
+        static void Init(v8::Handle<v8::Object> target, v8::Local<v8::FunctionTemplate> constructorTemplate);
         void setConnection(Connection* connection);
-        v8::Handle<v8::Value> set(const v8::Arguments& args);
+        v8::Local<v8::Value> set(_NAN_METHOD_ARGS);
 
     protected:
         struct row_t {
@@ -46,27 +47,27 @@ class Query : public EventEmitter {
         bool async;
         bool cast;
         bool bufferText;
-        v8::Persistent<v8::Function>* cbStart;
-        v8::Persistent<v8::Function>* cbExecute;
-        v8::Persistent<v8::Function>* cbFinish;
+        NanCallback *cbStart;
+        NanCallback *cbExecute;
+        NanCallback *cbFinish;
 
         Query();
         ~Query();
-        static v8::Handle<v8::Value> Select(const v8::Arguments& args);
-        static v8::Handle<v8::Value> From(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Join(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Where(const v8::Arguments& args);
-        static v8::Handle<v8::Value> And(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Or(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Order(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Limit(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Add(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Insert(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Update(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Set(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Delete(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Sql(const v8::Arguments& args);
-        static v8::Handle<v8::Value> Execute(const v8::Arguments& args);
+        static NAN_METHOD(Select);
+        static NAN_METHOD(From);
+        static NAN_METHOD(Join);
+        static NAN_METHOD(Where);
+        static NAN_METHOD(And);
+        static NAN_METHOD(Or);
+        static NAN_METHOD(Order);
+        static NAN_METHOD(Limit);
+        static NAN_METHOD(Add);
+        static NAN_METHOD(Insert);
+        static NAN_METHOD(Update);
+        static NAN_METHOD(Set);
+        static NAN_METHOD(Delete);
+        static NAN_METHOD(Sql);
+        static NAN_METHOD(Execute);
         static uv_async_t g_async;
         static void uvExecute(uv_work_t* uvRequest);
         static void uvExecuteFinished(uv_work_t* uvRequest, int status);
@@ -74,7 +75,7 @@ class Query : public EventEmitter {
         static void freeRequest(execute_request_t* request, bool freeAll = true);
         std::string fieldName(v8::Local<v8::Value> value) const throw(Exception&);
         std::string tableName(v8::Local<v8::Value> value, bool escape = true) const throw(Exception&);
-        v8::Handle<v8::Value> addCondition(const v8::Arguments& args, const char* separator);
+        v8::Handle<v8::Value> addCondition(_NAN_METHOD_ARGS, const char* separator);
         v8::Local<v8::Object> row(Result* result, row_t* currentRow) const;
         virtual std::string parseQuery() const throw(Exception&);
         virtual std::vector<std::string::size_type> placeholders(std::string* parsed) const throw(Exception&);

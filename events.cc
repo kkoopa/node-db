@@ -15,7 +15,7 @@ void node_db::EventEmitter::Init() {
 }
 
 bool node_db::EventEmitter::Emit(const char* event, int argc, v8::Handle<v8::Value> argv[]) {
-    v8::HandleScope scope;
+    NanScope();
 
     int nArgc = argc + 1;
     v8::Handle<v8::Value>* nArgv = new v8::Handle<v8::Value>[nArgc];
@@ -29,7 +29,7 @@ bool node_db::EventEmitter::Emit(const char* event, int argc, v8::Handle<v8::Val
     }
 
 #if NODE_VERSION_AT_LEAST(0, 5, 0)
-    node::MakeCallback(this->handle_, "emit", nArgc, nArgv);
+    node::MakeCallback(NanObjectWrapHandle(this), "emit", nArgc, nArgv);
 #else
     v8::Local<v8::Value> emit_v = this->handle_->Get(syEmit);
     if (!emit_v->IsFunction()) {

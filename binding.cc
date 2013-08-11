@@ -6,13 +6,13 @@ node_db::Binding::Binding(): node_db::EventEmitter(), connection(NULL), cbConnec
 
 node_db::Binding::~Binding() {
     if (this->cbConnect != NULL) {
-        node::cb_destroy(this->cbConnect);
+        delete this->cbConnect;
     }
 }
 
 uv_async_t node_db::Binding::g_async;
 
-void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::FunctionTemplate> constructorTemplate) {
+void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Local<v8::FunctionTemplate> constructorTemplate) {
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_STRING, node_db::Result::Column::STRING);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_BOOL, node_db::Result::Column::BOOL);
     NODE_ADD_CONSTANT(constructorTemplate, COLUMN_TYPE_INT, node_db::Result::Column::INT);
@@ -32,8 +32,8 @@ void node_db::Binding::Init(v8::Handle<v8::Object> target, v8::Persistent<v8::Fu
     NODE_ADD_PROTOTYPE_METHOD(constructorTemplate, "query", Query);
 }
 
-v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::Connect) {
+    NanScope();
 
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
@@ -60,7 +60,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
 
             v8::Handle<v8::Value> set = binding->set(options);
             if (!set.IsEmpty()) {
-                return scope.Close(set);
+                NanReturnValue(set);
             }
 
             ARG_CHECK_OBJECT_ATTR_OPTIONAL_BOOL(options, async);
@@ -71,7 +71,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
         }
 
         if (callbackIndex >= 0) {
-            binding->cbConnect = node::cb_persist(args[callbackIndex]);
+            binding->cbConnect = new NanCallback(args[callbackIndex].As<v8::Function>());
         }
     }
 
@@ -80,7 +80,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
         THROW_EXCEPTION("Could not create EIO request")
     }
 
-    request->context = v8::Persistent<v8::Object>::New(args.This());
+    NanAssignPersistent(v8::Object, request->context, args.This());
     request->binding = binding;
     request->error = NULL;
 
@@ -102,7 +102,7 @@ v8::Handle<v8::Value> node_db::Binding::Connect(const v8::Arguments& args) {
         connectFinished(request);
     }
 
-    return scope.Close(v8::Undefined());
+    NanReturnValue(v8::Undefined());
 }
 
 void node_db::Binding::connect(connect_request_t* request) {
@@ -114,6 +114,8 @@ void node_db::Binding::connect(connect_request_t* request) {
 }
 
 void node_db::Binding::connectFinished(connect_request_t* request) {
+    NanScope();
+
     bool connected = request->binding->connection->isAlive();
     v8::Local<v8::Value> argv[2];
 
@@ -134,15 +136,15 @@ void node_db::Binding::connectFinished(connect_request_t* request) {
         request->binding->Emit("error", 1, argv);
     }
 
-    if (request->binding->cbConnect != NULL && !request->binding->cbConnect->IsEmpty()) {
+    if (request->binding->cbConnect != NULL && !(request->binding->cbConnect->GetFunction()).IsEmpty()) {
         v8::TryCatch tryCatch;
-        (*(request->binding->cbConnect))->Call(request->context, connected ? 2 : 1, argv);
+        (*(request->binding->cbConnect->GetFunction()))->Call(NanPersistentToLocal(request->context), connected ? 2 : 1, argv);
         if (tryCatch.HasCaught()) {
             node::FatalException(tryCatch);
         }
     }
 
-    request->context.Dispose();
+    NanDispose(request->context);
 
     delete request;
 }
@@ -155,7 +157,7 @@ void node_db::Binding::uvConnect(uv_work_t* uvRequest) {
 }
 
 void node_db::Binding::uvConnectFinished(uv_work_t* uvRequest, int status) {
-    v8::HandleScope scope;
+    NanScope();
 
     connect_request_t* request = static_cast<connect_request_t*>(uvRequest->data);
     assert(request);
@@ -171,28 +173,28 @@ void node_db::Binding::uvConnectFinished(uv_work_t* uvRequest, int status) {
     connectFinished(request);
 }
 
-v8::Handle<v8::Value> node_db::Binding::Disconnect(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::Disconnect) {
+    NanScope();
 
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
 
     binding->connection->close();
 
-    return scope.Close(v8::Undefined());
+    NanReturnValue(v8::Undefined());
 }
 
-v8::Handle<v8::Value> node_db::Binding::IsConnected(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::IsConnected) {
+    NanScope();
 
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
 
-    return scope.Close(binding->connection->isAlive(true) ? v8::True() : v8::False());
+    NanReturnValue(binding->connection->isAlive(true) ? v8::True() : v8::False());
 }
 
-v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::Escape) {
+    NanScope();
 
     ARG_CHECK_STRING(0, string);
 
@@ -209,11 +211,11 @@ v8::Handle<v8::Value> node_db::Binding::Escape(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what())
     }
 
-    return scope.Close(v8::String::New(escaped.c_str()));
+    NanReturnValue(v8::String::New(escaped.c_str()));
 }
 
-v8::Handle<v8::Value> node_db::Binding::Name(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::Name) {
+    NanScope();
 
     ARG_CHECK_STRING(0, table);
 
@@ -230,16 +232,16 @@ v8::Handle<v8::Value> node_db::Binding::Name(const v8::Arguments& args) {
         THROW_EXCEPTION(exception.what())
     }
 
-    return scope.Close(v8::String::New(escaped.str().c_str()));
+    NanReturnValue(v8::String::New(escaped.str().c_str()));
 }
 
-v8::Handle<v8::Value> node_db::Binding::Query(const v8::Arguments& args) {
-    v8::HandleScope scope;
+NAN_METHOD(node_db::Binding::Query) {
+    NanScope();
 
     node_db::Binding* binding = node::ObjectWrap::Unwrap<node_db::Binding>(args.This());
     assert(binding);
 
-    v8::Persistent<v8::Object> query = binding->createQuery();
+    v8::Local<v8::Object> query = binding->createQuery();
     if (query.IsEmpty()) {
         THROW_EXCEPTION("Could not create query");
     }
@@ -247,10 +249,10 @@ v8::Handle<v8::Value> node_db::Binding::Query(const v8::Arguments& args) {
     node_db::Query* queryInstance = node::ObjectWrap::Unwrap<node_db::Query>(query);
     queryInstance->setConnection(binding->connection);
 
-    v8::Handle<v8::Value> set = queryInstance->set(args);
+    v8::Local<v8::Value> set = queryInstance->set(args);
     if (!set.IsEmpty()) {
-        return scope.Close(set);
+        NanReturnValue(set);
     }
 
-    return scope.Close(query);
+    NanReturnValue(query);
 }
